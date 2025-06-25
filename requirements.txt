@@ -1,7 +1,14 @@
-Flask
-langchain
-SQLAlchemy
-python-dotenv 
-langchain_community
-google-generativeai
-dateparser
+# Flask web app requirements for Azure App Service
+Flask>=2.2,<3.0
+langchain>=0.1.0,<0.2.0
+SQLAlchemy>=1.4,<3.0
+python-dotenv>=1.0,<2.0
+langchain_community>=0.0.30,<0.1.0
+google-generativeai>=0.3.0,<0.4.0
+dateparser>=1.2,<2.0
+# Production WSGI server
+# Gunicorn is required for Azure App Service to run Flask apps in production
+# (Azure will use gunicorn to serve your app)
+gunicorn>=21.2,<22.0
+# Optional: For improved static file serving in production
+# whitenoise>=6.6,<7.0
