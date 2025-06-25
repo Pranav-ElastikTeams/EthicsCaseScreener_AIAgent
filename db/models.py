@@ -6,6 +6,7 @@ Base = declarative_base()
 
 class Complaint(Base):
     __tablename__ = 'complaints'
+    __table_args__ = {'schema': 'ecsai'}
     complaint_id = Column(String(20), primary_key=True)
     date = Column(Date)
     complainant = Column(String(100))

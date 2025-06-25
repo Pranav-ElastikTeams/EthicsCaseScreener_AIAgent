@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from db.models import Base
 from dotenv import load_dotenv
 import os
@@ -12,7 +12,9 @@ load_dotenv()
 DATABASE_URI = os.getenv('DATABASE_URI')
 
 if not DATABASE_URI:
-    raise ValueError("DATABASE_URI is not set in the environment variables.")
+    # Fallback to SQLite for testing if no DATABASE_URI is set
+    DATABASE_URI = 'sqlite:///site.db'
+    print("No DATABASE_URI found, using SQLite for testing")
 
 # Create SQLAlchemy engine
 engine = create_engine(DATABASE_URI, echo=True)
@@ -30,5 +32,10 @@ def init_db():
     try:
         Base.metadata.create_all(bind=engine)
         print("Database initialized successfully.")
-    except OperationalError as e:
+    except (OperationalError, ProgrammingError) as e:
         print(f"Error initializing the database: {e}")
+        print("This might be due to insufficient permissions.")
+        print("Please ensure your database user has CREATE TABLE permissions.")
+        print("For testing, you can use SQLite by setting DATABASE_URI=sqlite:///site.db")
+        # Don't raise the error - let the app continue without database
+        # The app will fail gracefully when trying to use database features
