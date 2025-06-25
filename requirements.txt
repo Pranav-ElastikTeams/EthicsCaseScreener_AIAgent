@@ -1,0 +1,7 @@
+Flask
+langchain
+SQLAlchemy
+python-dotenv 
+langchain_community
+google-generativeai
+dateparser

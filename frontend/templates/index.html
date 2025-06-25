@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ethics Case Screener</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="chat-container">
+      <h1>Ethics Case Screener</h1>
+      <div id="chat-box"></div>
+      <div class="input-container">
+        <input
+          type="text"
+          id="user-input"
+          placeholder="Type your message..."
+          style="display: none"
+        />
+        <button id="send-btn" style="display: none">Send</button>
+      </div>
+    </div>
+    <script>
+      const chatBox = document.getElementById("chat-box");
+      const userInput = document.getElementById("user-input");
+      const sendBtn = document.getElementById("send-btn");
+
+      let complaintTypes = [];
+      let awaitingComplaintType = false;
+      let selectedComplaintType = "";
+      let complaintTypeFormDiv = null;
+
+      // India greeting logic
+      function getIndiaGreeting() {
+        const now = new Date();
+        // Convert to IST (UTC+5:30)
+        const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+        const ist = new Date(utc + 5.5 * 60 * 60 * 1000);
+        const hour = ist.getHours();
+        if (hour >= 5 && hour < 12) return "Good morning";
+        if (hour >= 12 && hour < 17) return "Good afternoon";
+        if (hour >= 17 && hour < 21) return "Good evening";
+        return "Hello";
+      }
+
+      // Fetch complaint types from backend
+      async function fetchComplaintTypes() {
+        const response = await fetch("/complaint_types");
+        complaintTypes = await response.json();
+      }
+
+      function appendAgentGreetingAndType() {
+        // Only one agent message for greeting
+        const greeting = getIndiaGreeting();
+        chatBox.innerHTML = `<div><b>Agent:</b> ${greeting}, and welcome to the Ethics Complaint Submission Assistant. I'll help you file your concern confidentially and ensure it reaches the appropriate review team.<br><br><strong>First, please select the type of complaint you're reporting:</strong><br><span class="status-indicator">Only one can be selected</span></div>`;
+        // Add the complaint type selection form below
+        showComplaintTypeInChat();
+      }
+
+      function appendUserMessage(msg) {
+        chatBox.innerHTML += `<div><b>You:</b> ${msg}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+      
+      function appendAgentMessage(msg) {
+        chatBox.innerHTML += `<div><b>Agent:</b> ${msg}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function showComplaintTypeInChat() {
+        // Remove any existing form
+        if (complaintTypeFormDiv) complaintTypeFormDiv.remove();
+        complaintTypeFormDiv = document.createElement("div");
+        complaintTypeFormDiv.style.margin = "10px 0";
+        complaintTypeFormDiv.style.background = "none";
+        complaintTypeFormDiv.style.border = "none";
+        complaintTypeFormDiv.style.padding = "0";
+        // Only the radio list, no extra agent message
+        complaintTypeFormDiv.innerHTML = `
+                <div id="complaint-type-options"></div>
+            `;
+        chatBox.appendChild(complaintTypeFormDiv);
+        const complaintTypeOptions = complaintTypeFormDiv.querySelector(
+          "#complaint-type-options"
+        );
+        complaintTypeOptions.innerHTML = "";
+        complaintTypes.forEach((type) => {
+          const id = "complaint_" + type.replace(/\s+/g, "_").toLowerCase();
+          const label = document.createElement("label");
+          label.className = "complaint-type-option";
+          label.innerHTML = `<input type="radio" class="complaint-type-radio" name="complaint_type" value="${type}" id="${id}"> ${type}`;
+          complaintTypeOptions.appendChild(label);
+        });
+        awaitingComplaintType = true;
+        selectedComplaintType = "";
+        let lastChecked = null;
+        // Reset lower input and send button
+        userInput.value = "";
+        userInput.disabled = true;
+        sendBtn.disabled = true;
+        userInput.style.display = "";
+        sendBtn.style.display = "";
+        userInput.placeholder = "Type your message...";
+        userInput.style.display = "";
+        complaintTypeOptions
+          .querySelectorAll("input[type=radio]")
+          .forEach((radio) => {
+            radio.onclick = function (e) {
+              // Allow deselect
+              if (lastChecked === this) {
+                this.checked = false;
+                lastChecked = null;
+                selectedComplaintType = "";
+                sendBtn.disabled = true;
+                userInput.disabled = true;
+                userInput.value = "";
+                userInput.style.display = "";
+                return;
+              }
+              lastChecked = this;
+            };
+            radio.onchange = function () {
+              selectedComplaintType = this.value;
+              if (this.value.toLowerCase() === "other") {
+                userInput.disabled = false;
+                userInput.value = "";
+                userInput.style.display = "";
+                userInput.placeholder = "Please specify your complaint type...";
+                sendBtn.disabled = true;
+                userInput.focus();
+                userInput.oninput = function () {
+                  sendBtn.disabled = !userInput.value.trim();
+                };
+              } else {
+                userInput.disabled = true;
+                userInput.value = "";
+                userInput.style.display = "";
+                userInput.placeholder = "Type your message...";
+                sendBtn.disabled = false;
+                userInput.oninput = null;
+              }
+            };
+          });
+      }
+
+      // Add loader logic
+      function showAgentLoaderWithDelay() {
+        // Only show loader if not already present
+        if (document.getElementById('agent-loader')) return;
+        window._agentLoaderTimeout = setTimeout(() => {
+          if (!document.getElementById('agent-loader')) {
+            const loaderDiv = document.createElement('div');
+            loaderDiv.id = 'agent-loader';
+            loaderDiv.innerHTML = `<b>Agent:</b><span class="three-dot-loader"><div class="dot"></div><div class="dot"></div><div class="dot"></div></span>`;
+            chatBox.appendChild(loaderDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+          }
+        }, 400);
+      }
+      
+      function removeAgentLoader() {
+        clearTimeout(window._agentLoaderTimeout);
+        const loader = document.getElementById('agent-loader');
+        if (loader) loader.remove();
+      }
+
+      sendBtn.onclick = async function (e) {
+        e.preventDefault();
+        if (awaitingComplaintType) {
+          if (!selectedComplaintType) return;
+          let message;
+          if (selectedComplaintType.toLowerCase() === "other") {
+            if (!userInput.value.trim()) {
+              userInput.focus();
+              return;
+            }
+            message = userInput.value.trim();
+          } else {
+            message = selectedComplaintType;
+          }
+          appendUserMessage(message);
+          complaintTypeFormDiv.querySelectorAll('input[type=radio]').forEach(radio => {
+            radio.disabled = true;
+          });
+          awaitingComplaintType = false;
+          userInput.value = "";
+          userInput.disabled = false;
+          userInput.placeholder = "Type your message...";
+          sendBtn.disabled = false;
+          // Show loader with delay while waiting for response
+          showAgentLoaderWithDelay();
+          
+          // Send to backend
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message }),
+          });
+          const data = await response.json();
+          removeAgentLoader();
+          appendAgentMessage(data.response);
+          userInput.style.display = "";
+          sendBtn.style.display = "";
+          userInput.focus();
+          
+        } else {
+          let message = userInput.value;
+          if (!message.trim()) return;
+          appendUserMessage(message);
+          userInput.value = "";
+          userInput.disabled = false;
+          sendBtn.disabled = false;
+          // Show loader with delay while waiting for response
+          showAgentLoaderWithDelay();
+          
+          const response = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message }),
+          });
+          const data = await response.json();
+          removeAgentLoader();
+          appendAgentMessage(data.response);
+        }
+      };
+
+      // On load, show greeting and complaint type selection in chatbox
+      window.onload = async function () {
+        await fetchComplaintTypes();
+        appendAgentGreetingAndType();
+      };
+
+      // Pressing Enter in the input triggers send
+      userInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !sendBtn.disabled) {
+          e.preventDefault();
+          sendBtn.click();
+        }
+      });
+    </script>
+  </body>
+</html>
