@@ -27,9 +27,6 @@ jobs:
       # - name: Run tests
       #   run: pytest
 
-      - name: Clean old deployment artifacts
-        run: |
-          rm -rf ./zipdeploy
 
       - name: Upload to Azure Web App
         uses: azure/webapps-deploy@v2
